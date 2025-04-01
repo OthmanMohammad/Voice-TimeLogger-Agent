@@ -11,3 +11,7 @@ google-cloud-speech==2.21.0
 
 # Data extraction
 python-dateutil==2.8.2
+
+# Google Sheets integration
+google-api-python-client==2.106.0
+google-auth==2.23.3
