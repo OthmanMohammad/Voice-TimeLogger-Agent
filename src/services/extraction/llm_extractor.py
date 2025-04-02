@@ -20,7 +20,7 @@ from src.services.extraction.config import (
 
 logger = logging.getLogger(__name__)
 
-# Define the default model - cost-efficient option
+# Define the default model
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
 
 class LLMExtractor:
