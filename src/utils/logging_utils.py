@@ -12,14 +12,7 @@ from functools import wraps
 import traceback
 import json
 
-# Log levels dictionary for easy reference
-LOG_LEVELS = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "CRITICAL": logging.CRITICAL,
-}
+from src.enums import LogLevel
 
 class ContextAdapter(logging.LoggerAdapter):
     """
@@ -73,44 +66,54 @@ def configure_logging(
         log_format: Custom log format string (if None, uses default format)
         log_file: Path to log file (if None, logs to stdout only)
     """
-    # Get the numeric level from the name
-    numeric_level = LOG_LEVELS.get(level.upper(), logging.INFO)
-    
-    # Define default log format if not provided
-    if not log_format:
-        log_format = (
-            "%(asctime)s - %(levelname)s - %(name)s - "
-            "%(filename)s:%(lineno)d - %(message)s"
+    try:
+        # Get the numeric level from the name
+        numeric_level = LogLevel.from_string(level.upper())
+        
+        # Define default log format if not provided
+        if not log_format:
+            log_format = (
+                "%(asctime)s - %(levelname)s - %(name)s - "
+                "%(filename)s:%(lineno)d - %(message)s"
+            )
+        
+        # Basic configuration
+        handlers = []
+        
+        # Console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logging.Formatter(log_format))
+        handlers.append(console_handler)
+        
+        # File handler if requested
+        if log_file:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(logging.Formatter(log_format))
+            handlers.append(file_handler)
+        
+        # Configure root logger
+        logging.basicConfig(
+            level=numeric_level,
+            format=log_format,
+            handlers=handlers,
+            force=True  # Override any existing configuration
         )
-    
-    # Basic configuration
-    handlers = []
-    
-    # Console handler
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setFormatter(logging.Formatter(log_format))
-    handlers.append(console_handler)
-    
-    # File handler if requested
-    if log_file:
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(logging.Formatter(log_format))
-        handlers.append(file_handler)
-    
-    # Configure root logger
-    logging.basicConfig(
-        level=numeric_level,
-        format=log_format,
-        handlers=handlers,
-        force=True  # Override any existing configuration
-    )
-    
-    # Set third-party loggers to higher level to reduce noise
-    logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("httpcore").setLevel(logging.WARNING)
-    logging.getLogger("openai").setLevel(logging.WARNING)
-    logging.getLogger("google").setLevel(logging.WARNING)
+        
+        # Set third-party loggers to higher level to reduce noise
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
+        logging.getLogger("openai").setLevel(logging.WARNING)
+        logging.getLogger("google").setLevel(logging.WARNING)
+        
+    except ValueError as e:
+        # If we can't parse the log level, default to INFO
+        print(f"Warning: {str(e)}. Defaulting to INFO level.")
+        logging.basicConfig(
+            level=logging.INFO,
+            format=log_format or "%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+            force=True
+        )
 
 
 def generate_request_id() -> str:

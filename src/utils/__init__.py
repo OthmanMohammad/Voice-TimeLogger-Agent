@@ -12,7 +12,6 @@ from src.utils.logging_utils import (
 )
 
 from src.utils.exceptions import (
-    ErrorCode,
     BaseAppException,
     ConfigurationError,
     ValidationError,
@@ -21,6 +20,15 @@ from src.utils.exceptions import (
     InsufficientDataError,
     TranscriptionError,
     StorageError
+)
+
+# Import enums directly from the enums package
+from src.enums import (
+    ErrorCode,
+    LogLevel,
+    ProcessingStatus,
+    ExtractionStatus,
+    StorageStatus
 )
 
 __all__ = [
@@ -33,7 +41,6 @@ __all__ = [
     "format_structured_log",
     
     # Exceptions
-    "ErrorCode",
     "BaseAppException",
     "ConfigurationError",
     "ValidationError",
@@ -41,5 +48,12 @@ __all__ = [
     "LLMExtractionError",
     "InsufficientDataError",
     "TranscriptionError",
-    "StorageError"
+    "StorageError",
+    
+    # Enums
+    "ErrorCode",
+    "LogLevel",
+    "ProcessingStatus",
+    "ExtractionStatus",
+    "StorageStatus"
 ]
