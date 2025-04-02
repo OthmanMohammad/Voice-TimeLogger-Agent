@@ -59,7 +59,7 @@ class ExtractionManager:
                     model=self.model
                 )
             
-            logger.info("Using LLM extraction")
+            logger.info(f"Using LLM extraction with model: {self._llm_extractor.model}")
             llm_result = await self._llm_extractor.extract(text)
             
             # Update our result with the extracted data
@@ -95,11 +95,11 @@ class ExtractionManager:
 # For direct testing
 import asyncio
 
-async def test_extraction_manager(text):
+async def test_extraction_manager(text, model=None):
     """Test the extraction manager with a sample text."""
     try:
         # Create extraction manager
-        manager = ExtractionManager()
+        manager = ExtractionManager(model=model)
         
         # Run extraction
         result = await manager.extract(text)
@@ -111,6 +111,7 @@ async def test_extraction_manager(text):
         print(f"Start Time: {result.get('start_time')}")
         print(f"End Time: {result.get('end_time')}")
         print(f"Total Hours: {result.get('total_hours')}")
+        print(f"Notes: {result.get('notes')}")
         
         return result
     except Exception as e:
