@@ -1,12 +1,11 @@
 """
-Extraction manager that handles meeting data extraction with configurable strategies.
+Extraction manager that handles meeting data extraction.
 """
 
 import logging
-import os
 from typing import Dict, Any, Optional
 from datetime import datetime
-
+from config.config import get_settings
 from src.services.extraction.config import DEFAULT_MEETING_DATA, REQUIRED_MEETING_FIELDS
 
 logger = logging.getLogger(__name__)
@@ -22,10 +21,16 @@ class ExtractionManager:
         Initialize the extraction manager.
         
         Args:
-            openai_api_key: API key for OpenAI (if None, read from environment)
+            openai_api_key: API key for OpenAI (if None, read from settings)
             model: OpenAI model to use (defaults to configuration value)
         """
-        self.openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+        # If api_key is not provided, get from settings
+        if not openai_api_key:
+            settings = get_settings()
+            self.openai_api_key = settings.OPENAI_API_KEY
+        else:
+            self.openai_api_key = openai_api_key
+            
         self.model = model
         
         # Lazy load the LLM extractor when needed
@@ -59,7 +64,7 @@ class ExtractionManager:
                     model=self.model
                 )
             
-            logger.info("Using LLM extraction")
+            logger.info(f"Using LLM extraction with model: {self._llm_extractor.model}")
             llm_result = await self._llm_extractor.extract(text)
             
             # Update our result with the extracted data
@@ -90,37 +95,3 @@ class ExtractionManager:
             True if all required fields are present, False otherwise
         """
         return all(result.get(field) is not None for field in REQUIRED_MEETING_FIELDS)
-
-
-# For direct testing
-import asyncio
-
-async def test_extraction_manager(text):
-    """Test the extraction manager with a sample text."""
-    try:
-        # Create extraction manager
-        manager = ExtractionManager()
-        
-        # Run extraction
-        result = await manager.extract(text)
-        
-        # Print results
-        print("\nExtraction Results:")
-        print(f"Customer: {result.get('customer_name')}")
-        print(f"Date: {result.get('meeting_date')}")
-        print(f"Start Time: {result.get('start_time')}")
-        print(f"End Time: {result.get('end_time')}")
-        print(f"Total Hours: {result.get('total_hours')}")
-        
-        return result
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
-
-
-if __name__ == "__main__":
-    # Sample text
-    sample = "I had a meeting with Acme Corp yesterday from 2 PM to 3:30 PM. We discussed project requirements."
-    
-    # Run test
-    asyncio.run(test_extraction_manager(sample))

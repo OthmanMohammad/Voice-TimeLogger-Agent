@@ -3,9 +3,6 @@ Configuration for extraction services.
 Separates configuration from implementation for better maintainability.
 """
 
-# Default LLM model to use
-DEFAULT_LLM_MODEL = "gpt-3.5-turbo"
-
 # System prompts for different extraction strategies
 EXTRACTION_PROMPTS = {
     "meeting_data": """
@@ -13,9 +10,9 @@ EXTRACTION_PROMPTS = {
     Given a transcription of someone describing a meeting, extract the following information:
     
     1. Customer/Client Name: The company or organization name (avoid including dates or other info here)
-    2. Meeting Date: In YYYY-MM-DD format
-    3. Start Time: The time the meeting started
-    4. End Time: The time the meeting ended
+    2. Meeting Date: In YYYY-MM-DD format. Handle relative dates like "today" or "yesterday".
+    3. Start Time: The time the meeting started (in format like "10:00 AM" or "14:30")
+    4. End Time: The time the meeting ended (in format like "11:00 AM" or "15:45")
     5. Total Hours: Numeric duration in hours, calculated from start and end time if not explicitly mentioned
     6. Notes: Any other relevant information about the meeting
     

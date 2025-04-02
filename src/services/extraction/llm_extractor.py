@@ -5,21 +5,21 @@ This implementation is compatible with OpenAI SDK 1.x.
 
 import json
 import logging
-import os
 import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime
 from dateutil import parser
-
 from openai import OpenAI
-
+from config.config import get_settings
 from src.services.extraction.config import (
-    DEFAULT_LLM_MODEL, 
     EXTRACTION_PROMPTS,
     DEFAULT_MEETING_DATA
 )
 
 logger = logging.getLogger(__name__)
+
+# Define the default model
+DEFAULT_LLM_MODEL = "gpt-4o-mini"
 
 class LLMExtractor:
     """Extracts meeting data from text using LLM models."""
@@ -29,12 +29,19 @@ class LLMExtractor:
         Initialize the LLM extractor.
         
         Args:
-            api_key: OpenAI API key (falls back to environment variable if not provided)
-            model: Which model to use for extraction (defaults to config.DEFAULT_LLM_MODEL)
+            api_key: OpenAI API key (falls back to settings if not provided)
+            model: Which model to use for extraction (defaults to DEFAULT_LLM_MODEL)
         """
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
+        # If api_key is provided directly, use it
+        if api_key:
+            self.api_key = api_key
+        else:
+            # Otherwise get from settings
+            settings = get_settings()
+            self.api_key = settings.OPENAI_API_KEY
+        
         if not self.api_key:
-            raise ValueError("OpenAI API key is required - set in .env file or pass directly")
+            raise ValueError("Valid OpenAI API key is required")
         
         self.client = OpenAI(api_key=self.api_key)
         self.model = model or DEFAULT_LLM_MODEL
@@ -115,33 +122,3 @@ class LLMExtractor:
             # Add error info to result
             result["extraction_error"] = str(e)
             return result
-
-
-async def test_llm_extraction(text, model=None):
-    """Test function for LLM extraction."""
-    try:
-        # Try to get API key from environment
-        api_key = os.environ.get("OPENAI_API_KEY")
-        if not api_key:
-            print("ERROR: OpenAI API key not found in environment.")
-            print("Make sure you set OPENAI_API_KEY in your .env file.")
-            return None
-        
-        print(f"Testing LLM extraction with model: {model or DEFAULT_LLM_MODEL}")
-        
-        # Create extractor and test
-        extractor = LLMExtractor(api_key=api_key, model=model)
-        result = await extractor.extract(text)
-        return result
-        
-    except Exception as e:
-        print(f"Error during LLM extraction test: {e}")
-        return None
-
-
-if __name__ == "__main__":
-    # Sample text
-    sample = "I had a meeting with Acme Corp yesterday from 2 PM to 3:30 PM. We discussed project requirements."
-    
-    # Run extraction
-    asyncio.run(test_llm_extraction(sample))
