@@ -4,22 +4,35 @@ This implementation is compatible with OpenAI SDK 1.x.
 """
 
 import json
-import logging
 import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime
 from dateutil import parser
 from openai import OpenAI
+from openai import OpenAIError
+
 from config.config import get_settings
 from src.services.extraction.config import (
     EXTRACTION_PROMPTS,
     DEFAULT_MEETING_DATA
 )
+from src.utils import (
+    get_logger, 
+    log_async_function_call,
+    format_structured_log
+)
+from src.utils.exceptions import (
+    LLMExtractionError,
+    ValidationError
+)
+from src.enums import ExtractionStatus
 
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__name__)
 
 # Define the default model
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
+
 
 class LLMExtractor:
     """Extracts meeting data from text using LLM models."""
@@ -31,22 +44,34 @@ class LLMExtractor:
         Args:
             api_key: OpenAI API key (falls back to settings if not provided)
             model: Which model to use for extraction (defaults to DEFAULT_LLM_MODEL)
+            
+        Raises:
+            ValidationError: If API key is missing or invalid
         """
-        # If api_key is provided directly, use it
-        if api_key:
-            self.api_key = api_key
-        else:
-            # Otherwise get from settings
-            settings = get_settings()
-            self.api_key = settings.OPENAI_API_KEY
-        
-        if not self.api_key:
-            raise ValueError("Valid OpenAI API key is required")
-        
-        self.client = OpenAI(api_key=self.api_key)
-        self.model = model or DEFAULT_LLM_MODEL
-        logger.info(f"LLM Extractor initialized with model: {self.model}")
+        try:
+            # If api_key is provided directly, use it
+            if api_key:
+                self.api_key = api_key
+            else:
+                # Otherwise get from settings
+                settings = get_settings()
+                self.api_key = settings.OPENAI_API_KEY
+            
+            if not self.api_key:
+                raise ValidationError("Valid OpenAI API key is required")
+            
+            self.client = OpenAI(api_key=self.api_key)
+            self.model = model or DEFAULT_LLM_MODEL
+            logger.info(f"LLM Extractor initialized with model: {self.model}")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize LLM extractor: {str(e)}", exc_info=True)
+            raise ValidationError(
+                f"Failed to initialize LLM extractor: {str(e)}",
+                original_exception=e
+            )
     
+    @log_async_function_call(logger)
     async def extract(self, text: str) -> Dict[str, Any]:
         """
         Extract structured meeting data from text using OpenAI's API.
@@ -56,16 +81,31 @@ class LLMExtractor:
             
         Returns:
             Dictionary containing extracted meeting data
+            
+        Raises:
+            LLMExtractionError: If extraction fails
         """
         # Get a copy of the default result structure
         result = DEFAULT_MEETING_DATA.copy()
         result["notes"] = text  # Always include the original text as notes
+        result["extraction_status"] = ExtractionStatus.PENDING.value
+        
+        extraction_id = f"extract_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        logger.info(
+            format_structured_log(
+                f"Starting LLM extraction [{extraction_id}]",
+                {"text_length": len(text), "model": self.model}
+            )
+        )
         
         try:
+            result["extraction_status"] = ExtractionStatus.PROCESSING.value
+            
             # Get the system prompt for meeting data extraction
             system_prompt = EXTRACTION_PROMPTS["meeting_data"]
             
             # Make the API call
+            logger.debug(f"Sending request to OpenAI API with model {self.model}")
             response = await asyncio.to_thread(
                 self.client.chat.completions.create,
                 model=self.model,
@@ -77,9 +117,8 @@ class LLMExtractor:
                 response_format={"type": "json_object"}  # Force JSON response
             )
             
-            # Extract the result
             result_text = response.choices[0].message.content
-            logger.debug(f"LLM response: {result_text}")
+            logger.debug(f"Received LLM response: {result_text[:200]}...")
             
             # Parse the JSON response
             try:
@@ -97,28 +136,84 @@ class LLMExtractor:
                         parsed_date = parser.parse(date_str)
                         result["meeting_date"] = parsed_date.strftime("%Y-%m-%d")
                     except Exception as e:
-                        logger.warning(f"Failed to parse date: {e}")
+                        logger.warning(
+                            f"Failed to parse date '{result['meeting_date']}': {str(e)}"
+                        )
                 
                 # Convert total_hours to float
                 if result.get("total_hours"):
                     try:
                         result["total_hours"] = float(result["total_hours"])
-                    except:
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to convert total_hours '{result['total_hours']}' to float: {str(e)}"
+                        )
                         result["total_hours"] = None
                 
-                # Add timestamp
                 result["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
+                result["extraction_status"] = ExtractionStatus.COMPLETE.value
+                
+                # Log success
+                logger.info(
+                    format_structured_log(
+                        f"LLM extraction successful [{extraction_id}]",
+                        {
+                            "customer": result.get("customer_name"),
+                            "date": result.get("meeting_date"),
+                            "total_hours": result.get("total_hours"),
+                            "status": result["extraction_status"]
+                        }
+                    )
+                )
+                
                 return result
                 
-            except json.JSONDecodeError:
-                logger.error(f"Failed to parse LLM response as JSON: {result_text}")
-                # Add error info to result
-                result["extraction_error"] = "Failed to parse LLM response as JSON"
-                return result
+            except json.JSONDecodeError as e:
+                result["extraction_status"] = ExtractionStatus.FAILED.value
+                
+                logger.error(
+                    f"Failed to parse LLM response as JSON [{extraction_id}]: {result_text[:200]}...",
+                    exc_info=True
+                )
+                raise LLMExtractionError(
+                    "Failed to parse LLM response as JSON",
+                    details={
+                        "response_text": result_text[:500], 
+                        "extraction_id": extraction_id,
+                        "status": result["extraction_status"]
+                    },
+                    original_exception=e
+                )
+                
+        except OpenAIError as e:
+            result["extraction_status"] = ExtractionStatus.FAILED.value
+            
+            logger.error(
+                f"OpenAI API error during extraction [{extraction_id}]: {str(e)}",
+                exc_info=True
+            )
+            raise LLMExtractionError(
+                f"OpenAI API error: {str(e)}",
+                details={
+                    "extraction_id": extraction_id,
+                    "status": result["extraction_status"]
+                },
+                original_exception=e
+            )
                 
         except Exception as e:
-            logger.error(f"Error in LLM extraction: {str(e)}")
-            # Add error info to result
-            result["extraction_error"] = str(e)
-            return result
+            result["extraction_status"] = ExtractionStatus.FAILED.value
+            
+            logger.error(
+                f"Unexpected error in LLM extraction [{extraction_id}]: {str(e)}",
+                exc_info=True
+            )
+            raise LLMExtractionError(
+                f"Unexpected error in LLM extraction: {str(e)}",
+                details={
+                    "extraction_id": extraction_id,
+                    "status": result["extraction_status"]
+                },
+                original_exception=e
+            )
