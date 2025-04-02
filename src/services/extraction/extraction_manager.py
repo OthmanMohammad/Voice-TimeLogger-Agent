@@ -11,11 +11,14 @@ from src.services.extraction.config import DEFAULT_MEETING_DATA, REQUIRED_MEETIN
 from src.utils import (
     get_logger,
     log_async_function_call,
-    format_structured_log,
+    format_structured_log
+)
+from src.utils.exceptions import (
     ExtractionError,
     InsufficientDataError,
     ValidationError
 )
+from src.enums import ExtractionStatus
 
 
 logger = get_logger(__name__)
@@ -93,6 +96,7 @@ class ExtractionManager:
         result = DEFAULT_MEETING_DATA.copy()
         result["notes"] = text
         result["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        result["extraction_status"] = ExtractionStatus.PENDING.value
         
         logger.info(
             format_structured_log(
@@ -101,10 +105,11 @@ class ExtractionManager:
             )
         )
         
-        # Try LLM extraction
         try:
             if not self.openai_api_key:
                 raise ValidationError("OpenAI API key not provided and not found in environment")
+            
+            result["extraction_status"] = ExtractionStatus.PROCESSING.value
             
             # Lazy initialize the LLM extractor
             if not self._llm_extractor:
@@ -128,20 +133,22 @@ class ExtractionManager:
                 if key in llm_result and llm_result[key] is not None:
                     result[key] = llm_result[key]
             
-            # Check if extraction was successful
             if self._is_complete_extraction(result):
+                result["extraction_status"] = ExtractionStatus.COMPLETE.value
                 logger.info(
                     format_structured_log(
                         f"Extraction successful [{extraction_id}]",
                         {
                             "customer": result.get("customer_name"),
                             "date": result.get("meeting_date"),
-                            "total_hours": result.get("total_hours")
+                            "total_hours": result.get("total_hours"),
+                            "status": result["extraction_status"]
                         }
                     )
                 )
             else:
-                # Log warning if extraction is incomplete
+                result["extraction_status"] = ExtractionStatus.INCOMPLETE.value
+                
                 missing_fields = [
                     field for field in REQUIRED_MEETING_FIELDS 
                     if result.get(field) is None
@@ -149,7 +156,10 @@ class ExtractionManager:
                 logger.warning(
                     format_structured_log(
                         f"Incomplete extraction [{extraction_id}]",
-                        {"missing_fields": missing_fields}
+                        {
+                            "missing_fields": missing_fields,
+                            "status": result["extraction_status"]
+                        }
                     )
                 )
                 
@@ -165,16 +175,20 @@ class ExtractionManager:
                 # )
                 
         except Exception as e:
+            result["extraction_status"] = ExtractionStatus.FAILED.value
+            
             error_msg = f"Extraction error: {str(e)}"
             logger.error(
                 format_structured_log(
                     f"{error_msg} [{extraction_id}]",
-                    {"instance_id": self.instance_id}
+                    {
+                        "instance_id": self.instance_id,
+                        "status": result["extraction_status"]
+                    }
                 ),
                 exc_info=True
             )
             
-            # Include error information in the result
             result["extraction_error"] = str(e)
             
             # TODO
@@ -184,7 +198,10 @@ class ExtractionManager:
             # if not isinstance(e, InsufficientDataError):
             #     raise ExtractionError(
             #         error_msg,
-            #         details={"extraction_id": extraction_id},
+            #         details={
+            #             "extraction_id": extraction_id,
+            #             "status": result["extraction_status"]
+            #         },
             #         original_exception=e
             #     )
         

@@ -19,12 +19,15 @@ from src.services.extraction.config import (
 from src.utils import (
     get_logger, 
     log_async_function_call,
-    format_structured_log,
+    format_structured_log
+)
+from src.utils.exceptions import (
     LLMExtractionError,
     ValidationError
 )
+from src.enums import ExtractionStatus
 
-# Setup logger for this module
+
 logger = get_logger(__name__)
 
 # Define the default model
@@ -85,6 +88,7 @@ class LLMExtractor:
         # Get a copy of the default result structure
         result = DEFAULT_MEETING_DATA.copy()
         result["notes"] = text  # Always include the original text as notes
+        result["extraction_status"] = ExtractionStatus.PENDING.value
         
         extraction_id = f"extract_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         logger.info(
@@ -95,6 +99,8 @@ class LLMExtractor:
         )
         
         try:
+            result["extraction_status"] = ExtractionStatus.PROCESSING.value
+            
             # Get the system prompt for meeting data extraction
             system_prompt = EXTRACTION_PROMPTS["meeting_data"]
             
@@ -111,7 +117,6 @@ class LLMExtractor:
                 response_format={"type": "json_object"}  # Force JSON response
             )
             
-            # Extract the result
             result_text = response.choices[0].message.content
             logger.debug(f"Received LLM response: {result_text[:200]}...")
             
@@ -145,8 +150,9 @@ class LLMExtractor:
                         )
                         result["total_hours"] = None
                 
-                # Add timestamp
                 result["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                result["extraction_status"] = ExtractionStatus.COMPLETE.value
                 
                 # Log success
                 logger.info(
@@ -155,7 +161,8 @@ class LLMExtractor:
                         {
                             "customer": result.get("customer_name"),
                             "date": result.get("meeting_date"),
-                            "total_hours": result.get("total_hours")
+                            "total_hours": result.get("total_hours"),
+                            "status": result["extraction_status"]
                         }
                     )
                 )
@@ -163,34 +170,50 @@ class LLMExtractor:
                 return result
                 
             except json.JSONDecodeError as e:
+                result["extraction_status"] = ExtractionStatus.FAILED.value
+                
                 logger.error(
                     f"Failed to parse LLM response as JSON [{extraction_id}]: {result_text[:200]}...",
                     exc_info=True
                 )
                 raise LLMExtractionError(
                     "Failed to parse LLM response as JSON",
-                    details={"response_text": result_text[:500], "extraction_id": extraction_id},
+                    details={
+                        "response_text": result_text[:500], 
+                        "extraction_id": extraction_id,
+                        "status": result["extraction_status"]
+                    },
                     original_exception=e
                 )
                 
         except OpenAIError as e:
+            result["extraction_status"] = ExtractionStatus.FAILED.value
+            
             logger.error(
                 f"OpenAI API error during extraction [{extraction_id}]: {str(e)}",
                 exc_info=True
             )
             raise LLMExtractionError(
                 f"OpenAI API error: {str(e)}",
-                details={"extraction_id": extraction_id},
+                details={
+                    "extraction_id": extraction_id,
+                    "status": result["extraction_status"]
+                },
                 original_exception=e
             )
                 
         except Exception as e:
+            result["extraction_status"] = ExtractionStatus.FAILED.value
+            
             logger.error(
                 f"Unexpected error in LLM extraction [{extraction_id}]: {str(e)}",
                 exc_info=True
             )
             raise LLMExtractionError(
                 f"Unexpected error in LLM extraction: {str(e)}",
-                details={"extraction_id": extraction_id},
+                details={
+                    "extraction_id": extraction_id,
+                    "status": result["extraction_status"]
+                },
                 original_exception=e
             )
