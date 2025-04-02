@@ -19,3 +19,5 @@ google-auth==2.23.3
 # HTTP and async support
 httpx==0.24.1  # Needed for async HTTP requests
 anyio==3.7.1   # Required for async operations
+
+setuptools==78.1.0

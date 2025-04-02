@@ -6,9 +6,6 @@ import sys
 import asyncio
 from dotenv import load_dotenv, find_dotenv
 
-# Add the project root to the path
-sys.path.insert(0, os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-
 # Import the ExtractionManager
 from src.services.extraction.extraction_manager import ExtractionManager
 
