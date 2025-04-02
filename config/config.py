@@ -2,10 +2,10 @@ import os
 from pydantic import BaseSettings, Field
 from typing import Optional, List
 from functools import lru_cache
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(find_dotenv(), override=True)
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""

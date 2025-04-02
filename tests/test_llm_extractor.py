@@ -1,21 +1,15 @@
 """
 Test script for the ExtractionManager class.
 """
-import os
-import sys
 import asyncio
-from dotenv import load_dotenv, find_dotenv
-
-# Import the ExtractionManager
+from config.config import get_settings
 from src.services.extraction.extraction_manager import ExtractionManager
-
-# Load environment variables
-load_dotenv(find_dotenv(), override=True)
 
 async def test_extraction_manager():
     """Test the ExtractionManager class."""
-    # Get API key
-    api_key = os.environ.get("OPENAI_API_KEY")
+    settings = get_settings()
+    api_key = settings.OPENAI_API_KEY
+    
     if not api_key:
         print("ERROR: OPENAI_API_KEY not found in environment.")
         return

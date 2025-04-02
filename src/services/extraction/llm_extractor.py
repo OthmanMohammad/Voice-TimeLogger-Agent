@@ -5,14 +5,12 @@ This implementation is compatible with OpenAI SDK 1.x.
 
 import json
 import logging
-import os
 import asyncio
 from typing import Dict, Any, Optional
 from datetime import datetime
 from dateutil import parser
-
 from openai import OpenAI
-
+from config.config import get_settings
 from src.services.extraction.config import (
     EXTRACTION_PROMPTS,
     DEFAULT_MEETING_DATA
@@ -31,18 +29,16 @@ class LLMExtractor:
         Initialize the LLM extractor.
         
         Args:
-            api_key: OpenAI API key (falls back to environment variable if not provided)
+            api_key: OpenAI API key (falls back to settings if not provided)
             model: Which model to use for extraction (defaults to DEFAULT_LLM_MODEL)
         """
-        # If api_key is provided directly, use it instead of environment variables
+        # If api_key is provided directly, use it
         if api_key:
             self.api_key = api_key
         else:
-            # Otherwise try to load from .env with override
-            from dotenv import load_dotenv, find_dotenv
-            load_dotenv(find_dotenv(), override=True)
-            self.api_key = os.environ.get("OPENAI_API_KEY")
-            print(self.api_key)
+            # Otherwise get from settings
+            settings = get_settings()
+            self.api_key = settings.OPENAI_API_KEY
         
         if not self.api_key:
             raise ValueError("Valid OpenAI API key is required")

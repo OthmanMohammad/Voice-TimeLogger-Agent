@@ -3,10 +3,9 @@ Extraction manager that handles meeting data extraction.
 """
 
 import logging
-import os
 from typing import Dict, Any, Optional
 from datetime import datetime
-
+from config.config import get_settings
 from src.services.extraction.config import DEFAULT_MEETING_DATA, REQUIRED_MEETING_FIELDS
 
 logger = logging.getLogger(__name__)
@@ -22,10 +21,16 @@ class ExtractionManager:
         Initialize the extraction manager.
         
         Args:
-            openai_api_key: API key for OpenAI (if None, read from environment)
+            openai_api_key: API key for OpenAI (if None, read from settings)
             model: OpenAI model to use (defaults to configuration value)
         """
-        self.openai_api_key = openai_api_key or os.environ.get("OPENAI_API_KEY")
+        # If api_key is not provided, get from settings
+        if not openai_api_key:
+            settings = get_settings()
+            self.openai_api_key = settings.OPENAI_API_KEY
+        else:
+            self.openai_api_key = openai_api_key
+            
         self.model = model
         
         # Lazy load the LLM extractor when needed
