@@ -27,7 +27,7 @@ async def test_extraction_manager():
         manager = ExtractionManager(openai_api_key=api_key)
         
         # Sample text
-        text = "I had a meeting with Acme Corp yesterday from 2 PM to 3:30 PM. We discussed project requirements."
+        text = "I had a meeting with Acme Corp a week ago from 2 PM to 3:30 PM. We discussed project requirements."
         logger.info(f"Sample text: {text}")
         
         # Extract data
