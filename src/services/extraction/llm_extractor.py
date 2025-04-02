@@ -33,6 +33,8 @@ logger = get_logger(__name__)
 # Define the default model
 DEFAULT_LLM_MODEL = "gpt-4o-mini"
 
+# TODO
+# add default model to .env and get it from config 
 
 class LLMExtractor:
     """Extracts meeting data from text using LLM models."""
