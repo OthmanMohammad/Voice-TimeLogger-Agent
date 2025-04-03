@@ -23,7 +23,8 @@
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -383,3 +384,10 @@ $RECYCLE.BIN/
 .env
 credentials/*.json
 /tmp/
+
+
+# Ignore test audio files
+tests/audio/*.mp3
+tests/audio/*.wav
+# But keep the directory structure
+!tests/audio/.gitkeep
