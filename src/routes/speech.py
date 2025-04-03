@@ -14,8 +14,10 @@ from src.models.api import VoiceUploadRequest, TranscriptionResponse, ErrorRespo
 from src.models.meeting import ProcessingResponse
 from src.services.speech import SpeechManager
 from src.services.extraction import ExtractionManager
+from src.services.storage import StorageManager
 from src.utils import get_logger, ErrorCode, TranscriptionError, ExtractionError
-from src.utils.exceptions import BaseAppException
+from src.utils.exceptions import BaseAppException, StorageError
+from src.enums import ProcessingStatus, StorageStatus
 
 # Setup router
 router = APIRouter(
@@ -60,6 +62,22 @@ async def get_extraction_manager():
             detail=f"Could not initialize extraction service: {str(e)}"
         )
 
+async def get_storage_manager():
+    """Dependency to get storage manager instance."""
+    settings = get_settings()
+    try:
+        manager = StorageManager(
+            google_credentials_file=settings.GOOGLE_CREDENTIALS_FILE,
+            google_spreadsheet_id=settings.GOOGLE_SPREADSHEET_ID
+        )
+        yield manager
+    except Exception as e:
+        logger.error(f"Error creating StorageManager: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not initialize storage service: {str(e)}"
+        )
+
 
 @router.post(
     "/upload",
@@ -75,10 +93,11 @@ async def upload_audio(
     meeting_date_hint: Optional[str] = Form(None),
     notify: bool = Form(False),
     speech_manager: SpeechManager = Depends(get_speech_manager),
-    extraction_manager: ExtractionManager = Depends(get_extraction_manager)
+    extraction_manager: ExtractionManager = Depends(get_extraction_manager),
+    storage_manager: StorageManager = Depends(get_storage_manager)
 ):
     """
-    Upload an audio file, transcribe it, and extract meeting data.
+    Upload an audio file, transcribe it, extract meeting data, and store it.
     
     Args:
         file: Audio file upload
@@ -87,6 +106,7 @@ async def upload_audio(
         notify: Whether to send notification after processing
         speech_manager: SpeechManager instance
         extraction_manager: ExtractionManager instance
+        storage_manager: StorageManager instance
         
     Returns:
         Processed meeting data
@@ -149,12 +169,22 @@ async def upload_audio(
         # Extract meeting data
         meeting_data = await extraction_manager.extract(transcribed_text)
         
+        # Store meeting data
+        try:
+            storage_result = await storage_manager.store_meeting_data(meeting_data)
+            meeting_data["storage_status"] = storage_result.get("storage_status")
+        except StorageError as e:
+            logger.warning(f"[{request_id}] Storage error (continuing): {str(e)}")
+            meeting_data["storage_status"] = StorageStatus.FAILED.value
+            meeting_data["storage_error"] = str(e)
+        
+        # Return the results
         return ProcessingResponse(
             success=True,
-            message="Audio processed successfully",
+            message="Audio processed and data stored successfully",
             data=meeting_data
         )
-        
+            
     except HTTPException:
         # Re-raise HTTP exceptions
         raise
