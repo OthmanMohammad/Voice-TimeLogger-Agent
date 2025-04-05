@@ -19,6 +19,7 @@ from src.services.notification import NotificationManager
 from src.utils import get_logger, ErrorCode, TranscriptionError, ExtractionError
 from src.utils.exceptions import BaseAppException, StorageError
 from src.enums import ProcessingStatus, StorageStatus
+from src.enums.notification import NotificationStatus
 
 # Setup router
 router = APIRouter(
@@ -104,7 +105,7 @@ async def upload_audio(
     file: UploadFile = File(...),
     customer_hint: Optional[str] = Form(None),
     meeting_date_hint: Optional[str] = Form(None),
-    notify: bool = Form(False),
+    notify: Optional[bool] = Form(None),  # Make this optional
     speech_manager: SpeechManager = Depends(get_speech_manager),
     extraction_manager: ExtractionManager = Depends(get_extraction_manager),
     storage_manager: StorageManager = Depends(get_storage_manager),
@@ -117,7 +118,7 @@ async def upload_audio(
         file: Audio file upload
         customer_hint: Optional hint about the customer name
         meeting_date_hint: Optional hint about the meeting date
-        notify: Whether to send notification after processing
+        notify: Whether to send notification after processing (overrides default setting if provided)
         speech_manager: SpeechManager instance
         extraction_manager: ExtractionManager instance
         storage_manager: StorageManager instance
@@ -128,6 +129,13 @@ async def upload_audio(
     """
     request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
     logger.info(f"[{request_id}] Processing audio upload: {file.filename}")
+    
+    # Get settings
+    settings = get_settings()
+    
+    # Determine if notifications should be sent
+    # If notify param is explicitly provided, use it; otherwise use the default from settings
+    should_notify = notify if notify is not None else settings.NOTIFICATIONS_DEFAULT
     
     try:
         # Validate file extension
@@ -193,15 +201,23 @@ async def upload_audio(
             meeting_data["storage_status"] = StorageStatus.FAILED.value
             meeting_data["storage_error"] = str(e)
 
-        if notify and meeting_data.get("storage_status") == StorageStatus.STORED.value:
-            try:
-                notification_result = await notification_manager.send_notification(meeting_data)
-                meeting_data["notification_status"] = notification_result.get("overall_status")
-                meeting_data["notification_channels"] = notification_result.get("channels", [])
-            except Exception as e:
-                logger.warning(f"[{request_id}] Notification error (continuing): {str(e)}")
-                meeting_data["notification_status"] = "failed"
-                meeting_data["notification_error"] = str(e)
+        # notification logic
+        if meeting_data.get("storage_status") == StorageStatus.STORED.value:
+            if should_notify and (settings.ENABLE_EMAIL_NOTIFICATIONS or settings.ENABLE_SLACK_NOTIFICATIONS):
+                try:
+                    notification_result = await notification_manager.send_notification(meeting_data)
+                    meeting_data["notification_status"] = notification_result.get("overall_status")
+                    meeting_data["notification_channels"] = notification_result.get("channels", [])
+                except Exception as e:
+                    logger.warning(f"[{request_id}] Notification error (continuing): {str(e)}")
+                    meeting_data["notification_status"] = NotificationStatus.FAILED.value
+                    meeting_data["notification_error"] = str(e)
+            else:
+                meeting_data["notification_status"] = NotificationStatus.SKIPPED.value
+                if not should_notify:
+                    meeting_data["notification_message"] = "Notifications not requested"
+                elif not (settings.ENABLE_EMAIL_NOTIFICATIONS or settings.ENABLE_SLACK_NOTIFICATIONS):
+                    meeting_data["notification_message"] = "No notification channels enabled"
         
         # Return the results
         return ProcessingResponse(
