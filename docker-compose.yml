@@ -1,11 +1,10 @@
 version: '3.8'
-
 services:
   api:
     build:
       context: .
       dockerfile: Dockerfile
-      target: production
+      target: runtime
     image: voice-timelogger-agent:latest
     container_name: voice-timelogger-api
     restart: unless-stopped
@@ -27,6 +26,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-
 volumes:
   tmp_data:
+    driver: local
