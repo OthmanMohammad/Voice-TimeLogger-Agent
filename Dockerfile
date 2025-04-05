@@ -1,41 +1,59 @@
-FROM python:3.9-slim-bullseye as base
-
-# Set working directory
-WORKDIR /app
+# Builder stage
+FROM python:3.9-slim-bullseye as builder
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONPATH=/app
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
+WORKDIR /app
+
+# Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     libc6-dev \
-    curl \
+    python3-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies - leveraging Docker caching
+# Install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Production stage
-FROM base as production
+# Runtime stage
+FROM python:3.9-slim-bullseye as runtime
 
-# Copy application code
-COPY . .
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+
+# Copy Python dependencies from builder stage
+COPY --from=builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user for security
 RUN addgroup --system app && adduser --system --group app
 
 # Create necessary directories with proper permissions
-RUN mkdir -p /app/tmp/meeting_recordings \
-    && mkdir -p /app/credentials || true \
-    && chmod -R 777 /app/tmp \
-    && chown -R app:app /app
+RUN mkdir -p /app/tmp/meeting_recordings /app/credentials
+
+# Copy application code
+COPY . .
+
+# Set proper permissions
+RUN chmod -R 755 /app && \
+    chown -R app:app /app/tmp /app/credentials
 
 # Switch to non-root user
 USER app
