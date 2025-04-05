@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     # Notification settings
     ENABLE_EMAIL_NOTIFICATIONS: bool = Field(default=False)
     ENABLE_SLACK_NOTIFICATIONS: bool = Field(default=False)
+    NOTIFICATIONS_DEFAULT: bool = Field(default=False)
     
     # Slack notification settings
     SLACK_WEBHOOK_URL: Optional[str] = None
@@ -128,6 +129,10 @@ def validate_settings() -> List[str]:
             missing.append("GOOGLE_SPREADSHEET_ID")
         
         # Check email notification settings
+        if settings.NOTIFICATIONS_DEFAULT:
+            if not settings.ENABLE_EMAIL_NOTIFICATIONS and not settings.ENABLE_SLACK_NOTIFICATIONS:
+                logger.warning("NOTIFICATIONS_DEFAULT is True but no notification channels are enabled")
+                
         if settings.ENABLE_EMAIL_NOTIFICATIONS:
             if not settings.SMTP_SERVER:
                 missing.append("SMTP_SERVER")
