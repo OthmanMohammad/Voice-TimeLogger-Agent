@@ -1,0 +1,44 @@
+    <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #f8f9fa; padding: 20px; border-bottom: 3px solid #007bff;">
+                <h2 style="color: #007bff; margin: 0;">New Meeting Logged</h2>
+            </div>
+            <div style="padding: 20px;">
+                <p>A new meeting has been processed and logged to Google Sheets:</p>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                    <tr>
+                        <th style="text-align: left; padding: 8px; background-color: #f2f2f2; border: 1px solid #ddd;">Field</th>
+                        <th style="text-align: left; padding: 8px; background-color: #f2f2f2; border: 1px solid #ddd;">Value</th>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Customer:</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{customer_name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Meeting Date:</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{meeting_date}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Start Time:</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{start_time}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>End Time:</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{end_time}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Total Hours:</strong></td>
+                        <td style="padding: 8px; border: 1px solid #ddd;">{total_hours}</td>
+                    </tr>
+                </table>
+                
+                <div style="background-color: #f8f9fa; padding: 10px; border-left: 3px solid #6c757d; margin-bottom: 20px;">
+                    <h3 style="margin-top: 0;">Notes:</h3>
+                    <p>{notes}</p>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <p style="color: #6c757d; font-size: 12px;">This is an automated notification from Voice-TimeLogger-Agent.</p>
+            </div>
+        </body>
+        </html>
