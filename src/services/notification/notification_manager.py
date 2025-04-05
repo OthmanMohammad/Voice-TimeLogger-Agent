@@ -8,6 +8,8 @@ from datetime import datetime
 
 from config.config import get_settings
 from src.utils import get_logger, log_async_function_call, format_structured_log
+from src.enums.notification import NotificationStatus, NotificationChannel
+
 
 logger = get_logger(__name__)
 
@@ -61,7 +63,7 @@ class NotificationManager:
             "notification_id": notification_id,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "channels": [],
-            "overall_status": "skipped"
+            "overall_status": NotificationStatus.SKIPPED.value
         }
         
         # Collect results from all notification attempts
@@ -72,12 +74,12 @@ class NotificationManager:
         if self.email_enabled:
             email_result = await self._send_email_notification(meeting_data)
             notification_results.append(email_result)
-            if email_result.get("status") == "sent":
+            if email_result.get("status") == NotificationStatus.SENT.value:
                 notifications_sent = True
             
             # Add channel info to result
             result["channels"].append({
-                "type": "email",
+                "type": NotificationChannel.EMAIL.value,
                 "status": email_result.get("status"),
                 "details": email_result
             })
@@ -86,23 +88,23 @@ class NotificationManager:
         if self.slack_enabled:
             slack_result = await self._send_slack_notification(meeting_data)
             notification_results.append(slack_result)
-            if slack_result.get("status") == "sent":
+            if slack_result.get("status") == NotificationStatus.SENT.value:
                 notifications_sent = True
             
             # Add channel info to result
             result["channels"].append({
-                "type": "slack",
+                "type": NotificationChannel.SLACK.value,
                 "status": slack_result.get("status"),
                 "details": slack_result
             })
         
         # Determine overall status
         if notifications_sent:
-            result["overall_status"] = "sent"
+            result["overall_status"] = NotificationStatus.SENT.value
         elif result["channels"]:
-            result["overall_status"] = "partial"
+            result["overall_status"] = NotificationStatus.PARTIAL.value
         else:
-            result["overall_status"] = "skipped"
+            result["overall_status"] = NotificationStatus.SKIPPED.value
             result["message"] = "No notification channels enabled"
         
         return result
