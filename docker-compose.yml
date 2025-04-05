@@ -1,0 +1,31 @@
+version: '3.8'
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: voice-timelogger-agent:latest
+    container_name: voice-timelogger-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./tmp:/app/tmp
+      - ./credentials:/app/credentials
+    env_file:
+      - .env
+    environment:
+      - DEBUG=false
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+      - TEMP_DIR=/app/tmp/meeting_recordings
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+volumes:
+  tmp_data:
+    driver: local
