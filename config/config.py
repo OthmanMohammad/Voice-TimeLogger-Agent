@@ -6,7 +6,6 @@ from dotenv import load_dotenv, find_dotenv
 import logging
 from src.utils.exceptions import ConfigurationError
 
-# Setup basic logging initially (will be replaced by proper configuration)
 logger = logging.getLogger(__name__)
 
 # Load environment variables from .env file
@@ -48,8 +47,13 @@ class Settings(BaseSettings):
     GOOGLE_SPREADSHEET_ID: Optional[str] = None
     
     # Notification settings
-    NOTIFICATION_TYPE: str = Field(default="none") # "none", "slack", or "email"
+    ENABLE_EMAIL_NOTIFICATIONS: bool = Field(default=False)
+    ENABLE_SLACK_NOTIFICATIONS: bool = Field(default=False)
+    
+    # Slack notification settings
     SLACK_WEBHOOK_URL: Optional[str] = None
+    
+    # Email notification settings
     SMTP_SERVER: Optional[str] = None
     SMTP_PORT: int = Field(default=587)
     SENDER_EMAIL: Optional[str] = None
@@ -123,10 +127,8 @@ def validate_settings() -> List[str]:
         if not settings.GOOGLE_SPREADSHEET_ID:
             missing.append("GOOGLE_SPREADSHEET_ID")
         
-        if settings.NOTIFICATION_TYPE == "slack" and not settings.SLACK_WEBHOOK_URL:
-            missing.append("SLACK_WEBHOOK_URL")
-        
-        if settings.NOTIFICATION_TYPE == "email":
+        # Check email notification settings
+        if settings.ENABLE_EMAIL_NOTIFICATIONS:
             if not settings.SMTP_SERVER:
                 missing.append("SMTP_SERVER")
             if not settings.SENDER_EMAIL:
@@ -135,6 +137,11 @@ def validate_settings() -> List[str]:
                 missing.append("SENDER_PASSWORD")
             if not settings.RECIPIENT_EMAILS:
                 missing.append("RECIPIENT_EMAILS")
+        
+        # Check Slack notification settings
+        if settings.ENABLE_SLACK_NOTIFICATIONS:
+            if not settings.SLACK_WEBHOOK_URL:
+                missing.append("SLACK_WEBHOOK_URL")
         
         # Log the results
         if missing:
