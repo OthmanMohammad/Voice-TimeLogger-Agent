@@ -1,18 +1,23 @@
-
 """
 Email notification service for meeting recordings.
 """
 
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Any, List, Optional
 import asyncio
 from datetime import datetime
+from pathlib import Path
 
 from config.config import get_settings
 from src.utils import get_logger, format_structured_log
 from src.utils.exceptions import BaseAppException, ErrorCode
+from src.enums.notification import NotificationStatus, NotificationChannel
+from src.services.notification.constants import DEFAULT_EMAIL_SUBJECT, MAX_RETRY_ATTEMPTS
+from src.services.notification.templates import get_template
+
 
 logger = get_logger(__name__)
 
@@ -98,20 +103,20 @@ class EmailNotifier:
         result = {
             "notification_id": notification_id,
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "notification_type": "email",
-            "status": "pending"
+            "notification_type": NotificationChannel.EMAIL.value,
+            "status": NotificationStatus.PENDING.value
         }
         
         # Validate required settings
         if not self.recipient_emails:
             logger.warning("No recipient emails configured, skipping notification")
-            result["status"] = "skipped"
+            result["status"] = NotificationStatus.SKIPPED.value
             result["message"] = "No recipient emails configured"
             return result
         
         if not self.smtp_server or not self.sender_email or not self.sender_password:
             logger.warning("Email configuration incomplete, skipping notification")
-            result["status"] = "skipped"
+            result["status"] = NotificationStatus.SKIPPED.value
             result["message"] = "Email configuration incomplete"
             return result
         
@@ -119,43 +124,56 @@ class EmailNotifier:
         customer = meeting_data.get("customer_name", "Unknown Client")
         meeting_date = meeting_data.get("meeting_date", "Unknown Date")
         
-        # Create email subject and body
-        subject = f"[TEST] New Meeting Log: {customer} on {meeting_date}"
+        # Create email subject using the constant
+        subject = DEFAULT_EMAIL_SUBJECT.replace("[TimeLogger]", "[TEST]")
+        if customer and meeting_date:
+            subject = f"{subject}: {customer} on {meeting_date}"
         
         # Create the email content
         message = self._create_email_message(subject, meeting_data)
         
         # asyncio to send email without blocking
-        try:
-            await asyncio.to_thread(
-                self._send_email,
-                message
-            )
-            
-            logger.info(
-                format_structured_log(
-                    f"Email notification sent [{notification_id}]",
-                    {
-                        "recipients": len(self.recipient_emails),
-                        "customer": customer
-                    }
+        retry_count = 0
+        while retry_count < MAX_RETRY_ATTEMPTS:
+            try:
+                await asyncio.to_thread(
+                    self._send_email,
+                    message
                 )
-            )
-            
-            result["status"] = "sent"
-            result["recipients"] = len(self.recipient_emails)
-            
-        except Exception as e:
-            logger.error(
-                format_structured_log(
-                    f"Failed to send email notification [{notification_id}]",
-                    {"error": str(e)}
-                ),
-                exc_info=True
-            )
-            
-            result["status"] = "failed"
-            result["error"] = str(e)
+                
+                logger.info(
+                    format_structured_log(
+                        f"Email notification sent [{notification_id}]",
+                        {
+                            "recipients": len(self.recipient_emails),
+                            "customer": customer
+                        }
+                    )
+                )
+                
+                result["status"] = NotificationStatus.SENT.value
+                result["recipients"] = len(self.recipient_emails)
+                return result
+                
+            except Exception as e:
+                retry_count += 1
+                if retry_count >= MAX_RETRY_ATTEMPTS:
+                    logger.error(
+                        format_structured_log(
+                            f"Failed to send email notification after {MAX_RETRY_ATTEMPTS} attempts [{notification_id}]",
+                            {"error": str(e)}
+                        ),
+                        exc_info=True
+                    )
+                    
+                    result["status"] = NotificationStatus.FAILED.value
+                    result["error"] = str(e)
+                    return result
+                else:
+                    logger.warning(
+                        f"Email send attempt {retry_count} failed, retrying: {str(e)}"
+                    )
+                    await asyncio.sleep(1)  # Wait before retrying
         
         return result
     
@@ -170,53 +188,34 @@ class EmailNotifier:
         Returns:
             MIMEMultipart message object
         """
-        # Format the email body
-        body = f"""
-        <html>
-        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <div style="background-color: #f8f9fa; padding: 20px; border-bottom: 3px solid #007bff;">
-                <h2 style="color: #007bff; margin: 0;">New Meeting Logged</h2>
-            </div>
-            <div style="padding: 20px;">
-                <p>A new meeting has been processed and logged to Google Sheets:</p>
-                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                    <tr>
-                        <th style="text-align: left; padding: 8px; background-color: #f2f2f2; border: 1px solid #ddd;">Field</th>
-                        <th style="text-align: left; padding: 8px; background-color: #f2f2f2; border: 1px solid #ddd;">Value</th>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Customer:</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">{meeting_data.get('customer_name', 'Not provided')}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Meeting Date:</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">{meeting_data.get('meeting_date', 'Not provided')}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Start Time:</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">{meeting_data.get('start_time', 'Not provided')}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>End Time:</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">{meeting_data.get('end_time', 'Not provided')}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid #ddd;"><strong>Total Hours:</strong></td>
-                        <td style="padding: 8px; border: 1px solid #ddd;">{meeting_data.get('total_hours', 'Not provided')}</td>
-                    </tr>
-                </table>
-                
-                <div style="background-color: #f8f9fa; padding: 10px; border-left: 3px solid #6c757d; margin-bottom: 20px;">
-                    <h3 style="margin-top: 0;">Notes:</h3>
-                    <p>{meeting_data.get('notes', 'No notes provided')}</p>
-                </div>
-                
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                <p style="color: #6c757d; font-size: 12px;">This is an automated notification from Voice-TimeLogger-Agent.</p>
-            </div>
-        </body>
-        </html>
-        """
+        try:
+            # Get the template using the centralized template system
+            template = get_template("meeting_notification")
+            
+            # Prepare data with defaults for missing values
+            formatted_data = {
+                "customer_name": meeting_data.get('customer_name', 'Not provided'),
+                "meeting_date": meeting_data.get('meeting_date', 'Not provided'),
+                "start_time": meeting_data.get('start_time', 'Not provided'),
+                "end_time": meeting_data.get('end_time', 'Not provided'),
+                "total_hours": meeting_data.get('total_hours', 'Not provided'),
+                "notes": meeting_data.get('notes', 'No notes provided')
+            }
+            
+            # Format the template with the data
+            body = template.format(**formatted_data)
+            
+        except Exception as e:
+            logger.error(f"Template formatting error: {str(e)}", exc_info=True)
+            # Use a very simple fallback for catastrophic failures
+            body = f"""
+            <html><body>
+                <h2>Meeting Data</h2>
+                <p>Customer: {meeting_data.get('customer_name', 'Not provided')}</p>
+                <p>Date: {meeting_data.get('meeting_date', 'Not provided')}</p>
+                <p>Hours: {meeting_data.get('total_hours', 'Not provided')}</p>
+            </body></html>
+            """
         
         # Create the email message
         message = MIMEMultipart("alternative")
