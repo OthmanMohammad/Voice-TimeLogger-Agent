@@ -15,6 +15,7 @@ from src.models.meeting import ProcessingResponse
 from src.services.speech import SpeechManager
 from src.services.extraction import ExtractionManager
 from src.services.storage import StorageManager
+from src.services.notification import NotificationManager
 from src.utils import get_logger, ErrorCode, TranscriptionError, ExtractionError
 from src.utils.exceptions import BaseAppException, StorageError
 from src.enums import ProcessingStatus, StorageStatus
@@ -77,6 +78,18 @@ async def get_storage_manager():
             status_code=500,
             detail=f"Could not initialize storage service: {str(e)}"
         )
+    
+async def get_notification_manager():
+    """Dependency to get notification manager instance."""
+    try:
+        manager = NotificationManager()
+        yield manager
+    except Exception as e:
+        logger.error(f"Error creating NotificationManager: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Could not initialize notification service: {str(e)}"
+        )
 
 
 @router.post(
@@ -94,7 +107,8 @@ async def upload_audio(
     notify: bool = Form(False),
     speech_manager: SpeechManager = Depends(get_speech_manager),
     extraction_manager: ExtractionManager = Depends(get_extraction_manager),
-    storage_manager: StorageManager = Depends(get_storage_manager)
+    storage_manager: StorageManager = Depends(get_storage_manager),
+    notification_manager: NotificationManager = Depends(get_notification_manager)
 ):
     """
     Upload an audio file, transcribe it, extract meeting data, and store it.
@@ -107,6 +121,7 @@ async def upload_audio(
         speech_manager: SpeechManager instance
         extraction_manager: ExtractionManager instance
         storage_manager: StorageManager instance
+        notification_manager: NotificationManager instance
         
     Returns:
         Processed meeting data
@@ -177,6 +192,16 @@ async def upload_audio(
             logger.warning(f"[{request_id}] Storage error (continuing): {str(e)}")
             meeting_data["storage_status"] = StorageStatus.FAILED.value
             meeting_data["storage_error"] = str(e)
+
+        if notify and meeting_data.get("storage_status") == StorageStatus.STORED.value:
+            try:
+                notification_result = await notification_manager.send_notification(meeting_data)
+                meeting_data["notification_status"] = notification_result.get("overall_status")
+                meeting_data["notification_channels"] = notification_result.get("channels", [])
+            except Exception as e:
+                logger.warning(f"[{request_id}] Notification error (continuing): {str(e)}")
+                meeting_data["notification_status"] = "failed"
+                meeting_data["notification_error"] = str(e)
         
         # Return the results
         return ProcessingResponse(
