@@ -105,7 +105,7 @@ async def upload_audio(
     file: UploadFile = File(...),
     customer_hint: Optional[str] = Form(None),
     meeting_date_hint: Optional[str] = Form(None),
-    notify: Optional[bool] = Form(None),  # Make this optional
+    notify: Optional[bool] = Form(None),
     speech_manager: SpeechManager = Depends(get_speech_manager),
     extraction_manager: ExtractionManager = Depends(get_extraction_manager),
     storage_manager: StorageManager = Depends(get_storage_manager),
