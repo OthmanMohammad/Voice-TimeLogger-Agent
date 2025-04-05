@@ -23,12 +23,6 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-> **Note:**  
-> The setup script (`setup.sh`) only needs to be run **once** to create the necessary directories and check for required files. For subsequent deployments, you can run:  
-> ```bash
-> docker-compose up -d
-> ```
-> directly.
 
 ### 3. Start the Service
 
@@ -37,6 +31,13 @@ docker-compose up -d
 ```
 
 The API will be available at http://localhost:8000
+
+> **Note:**  
+> The setup script (`setup.sh`) only needs to be run **once** to create the necessary directories and check for required files. For subsequent deployments, you can run:  
+> ```bash
+> docker-compose up -d
+> ```
+> directly.
 
 ### 4. Check Logs
 
