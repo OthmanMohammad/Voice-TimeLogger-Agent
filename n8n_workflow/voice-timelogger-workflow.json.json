@@ -1,0 +1,288 @@
+{
+  "name": "timelogger-agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "40cd00b6-91a5-480f-b894-cd503b08a3c6",
+        "responseMode": "lastNode",
+        "options": {
+          "binaryPropertyName": "data"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        40
+      ],
+      "id": "dbd510ce-c9e1-4d1c-aa8b-96283e912659",
+      "name": "Webhook",
+      "webhookId": "40cd00b6-91a5-480f-b894-cd503b08a3c6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/speech/process",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "data0"
+            },
+            {
+              "name": "notify",
+              "value": "true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        140,
+        40
+      ],
+      "id": "3ad9fd8a-743b-4753-8f5e-901617505627",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "xxxxxxxxxxxxxxxx",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "n8n logs",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.data.timestamp }}",
+            "Customer Name": "={{ $json.data.customer_name }}",
+            "Meeting Date": "={{ $json.data.meeting_date }}",
+            "Start Time": "={{ $json.data.start_time }}",
+            "End Time": "={{ $json.data.end_time }}",
+            "Total Hours": "={{ $json.data.total_hours }}",
+            "Notes": "={{ $json.data.notes }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Customer Name",
+              "displayName": "Customer Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Meeting Date",
+              "displayName": "Meeting Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Start Time",
+              "displayName": "Start Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "End Time",
+              "displayName": "End Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Hours",
+              "displayName": "Total Hours",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        360,
+        40
+      ],
+      "id": "497ae3aa-3697-4fc1-9430-d5fab9a006b8",
+      "name": "Google Sheets",
+      "credentials": {
+        "googleApi": {
+          "id": "xxxxxxxxxxxxxxx",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "568945ee-2157-494a-bec8-2c7572caa59a",
+              "leftValue": "={{ $('Webhook').item.json.body.notify }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        580,
+        40
+      ],
+      "id": "2b6fe0cd-428f-4106-8008-28a7499ac90f",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fromEmail": "test001@smtp-brevo.com",
+        "toEmail": "email@example.com",
+        "subject": "=New Meeting Recorded:{{ $json['Customer Name'] }}",
+        "html": "=<div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n    <div style=\"background-color: #f8f9fa; padding: 20px; border-bottom: 3px solid #007bff;\">\n        <h2 style=\"color: #007bff; margin: 0;\">New Meeting Recorded</h2>\n    </div>\n    <div style=\"padding: 20px;\">\n        <p>A new meeting has been processed and logged to Google Sheets:</p>\n        <table style=\"width: 100%; border-collapse: collapse; margin-bottom: 20px;\">\n            <tr>\n                <th style=\"text-align: left; padding: 8px; background-color: #f2f2f2; border: 1px solid #ddd;\">Field</th>\n                <th style=\"text-align: left; padding: 8px; background-color: #f2f2f2; border: 1px solid #ddd;\">Value</th>\n            </tr>\n            <tr>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Customer:</strong></td>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\">{{ $json['Customer Name'] }}</td>\n            </tr>\n            <tr>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Meeting Date:</strong></td>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\">{{ $json['Meeting Date'] }}</td>\n            </tr>\n            <tr>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Time:</strong></td>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\">{{ $json['Start Time'] }} to {{ $json['End Time'] }}</td>\n            </tr>\n            <tr>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\"><strong>Total Hours:</strong></td>\n                <td style=\"padding: 8px; border: 1px solid #ddd;\">{{ $json['Total Hours'] }}</td>\n            </tr>\n        </table>\n        \n        <div style=\"background-color: #f8f9fa; padding: 10px; border-left: 3px solid #6c757d; margin-bottom: 20px;\">\n            <h3 style=\"margin-top: 0;\">Notes:</h3>\n            <p>{{ $json.Notes }}</p>\n        </div>\n    </div>\n</div>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        760,
+        -100
+      ],
+      "id": "fef36ac3-3506-4e6f-8e2f-9c9b06efabe2",
+      "name": "Send Email",
+      "webhookId": "4be6772b-cc91-47fb-ba66-9f9db7482d1d",
+      "credentials": {
+        "smtp": {
+          "id": "xxxxxxxxxxxxxxx",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8dc6f001-349f-4da8-a352-6fdeae16940f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6301f7f5cb00e646e4a78032db0d308b75641413a3207fd70f7a58e5236582aa"
+  },
+  "id": "twwfJqirwCBuI4p7",
+  "tags": []
+}
