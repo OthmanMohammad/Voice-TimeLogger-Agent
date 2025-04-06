@@ -1,0 +1,261 @@
+{
+	"info": {
+		"_postman_id": "42121525-04c4-42df-aa04-cc834ecb55f0",
+		"name": "Voice-TimeLogger-Agent API",
+		"description": "A collection for accessing the Voice-TimeLogger-Agent API endpoints. This API allows for the processing of audio recordings to extract meeting data and store it in Google Sheets.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Status",
+			"item": [
+				{
+					"name": "Root Endpoint",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains status ok\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql(\"ok\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								""
+							]
+						},
+						"description": "Root endpoint that returns API status"
+					},
+					"response": []
+				},
+				{
+					"name": "Health",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {",
+									"    pm.response.to.have.status(200);",
+									"});",
+									"",
+									"pm.test(\"Response contains status healthy\", function () {",
+									"    var jsonData = pm.response.json();",
+									"    pm.expect(jsonData.status).to.eql(\"healthy\");",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"health"
+							]
+						},
+						"description": "Health check endpoint"
+					},
+					"response": []
+				}
+			],
+			"description": "Status endpoints for checking API availability and health"
+		},
+		{
+			"name": "Speech",
+			"item": [
+				{
+					"name": "Transcribe",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/your/audio/file.mp3",
+									"description": "Audio file to transcribe (mp3, wav, m4a supported)"
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/speech/transcribe",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"speech",
+								"transcribe"
+							]
+						},
+						"description": "Transcribe an audio file without extracting meeting data"
+					},
+					"response": []
+				},
+				{
+					"name": "Upload",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/your/audio/file.mp3",
+									"description": "Audio file to process (mp3, wav, m4a supported)"
+								},
+								{
+									"key": "customer_hint",
+									"value": "Acme Corp",
+									"type": "text",
+									"description": "Optional hint about the customer name",
+									"disabled": true
+								},
+								{
+									"key": "meeting_date_hint",
+									"value": "2025-04-06",
+									"type": "text",
+									"description": "Optional hint about the meeting date",
+									"disabled": true
+								},
+								{
+									"key": "notify",
+									"value": "true",
+									"type": "text",
+									"description": "Whether to send notification after processing",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/speech/upload",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"speech",
+								"upload"
+							]
+						},
+						"description": "Upload an audio recording, transcribe it, extract meeting data, and store in Google Sheets"
+					},
+					"response": []
+				},
+				{
+					"name": "Process",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "formdata",
+							"formdata": [
+								{
+									"key": "file",
+									"type": "file",
+									"src": "/path/to/your/audio/file.mp3",
+									"description": "Audio file to process (mp3, wav, m4a supported)"
+								},
+								{
+									"key": "customer_hint",
+									"value": "Acme Corp",
+									"type": "text",
+									"description": "Optional hint about the customer name",
+									"disabled": true
+								},
+								{
+									"key": "meeting_date_hint",
+									"value": "2025-04-06",
+									"type": "text",
+									"description": "Optional hint about the meeting date",
+									"disabled": true
+								}
+							]
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/speech/process",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"speech",
+								"process"
+							]
+						},
+						"description": "Process an audio file (transcribe and extract) without storage or notifications"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for speech processing, transcription, and data extraction"
+		},
+		{
+			"name": "Meetings",
+			"item": [
+				{
+					"name": "Extract",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n  \"text\": \"I had a meeting with Acme Corporation yesterday from 2:00 PM to 3:30 PM. We discussed their new product launch strategy.\",\r\n  \"customer_hint\": \"Acme Corp\",\r\n  \"meeting_date_hint\": \"2025-04-05\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/meetings/extract",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v1",
+								"meetings",
+								"extract"
+							]
+						},
+						"description": "Extract meeting data from text without audio processing"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints for working with meeting data"
+		}
+	]
+}
