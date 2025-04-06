@@ -306,3 +306,102 @@ async def transcribe_audio(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         )
+    
+@router.post(
+    "/process",
+    response_model=ProcessingResponse,
+    summary="Process an audio recording without storage or notifications",
+    description="Upload an audio recording, transcribe it, and extract meeting details without storing or sending notifications"
+)
+async def process_audio(
+    request: Request,
+    file: UploadFile = File(...),
+    customer_hint: Optional[str] = Form(None),
+    meeting_date_hint: Optional[str] = Form(None),
+    speech_manager: SpeechManager = Depends(get_speech_manager),
+    extraction_manager: ExtractionManager = Depends(get_extraction_manager)
+):
+    """
+    Process an audio file (transcribe and extract) without storage or notifications.
+    
+    Args:
+        file: Audio file upload
+        customer_hint: Optional hint about the customer name
+        meeting_date_hint: Optional hint about the meeting date
+        speech_manager: SpeechManager instance
+        extraction_manager: ExtractionManager instance
+        
+    Returns:
+        Processed meeting data (without storage or notification)
+    """
+    request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
+    logger.info(f"[{request_id}] Processing audio: {file.filename}")
+    
+    try:
+        file_ext = os.path.splitext(file.filename)[1].lower() if file.filename else ""
+        if not file_ext or file_ext.lstrip(".") not in ["mp3", "wav", "m4a", "mpeg", "mpga", "webm"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unsupported file format: {file_ext}. Supported formats: mp3, wav, m4a, mpeg, mpga, webm"
+            )
+        
+        file_content = await file.read()
+        if not file_content:
+            raise HTTPException(
+                status_code=400,
+                detail="Uploaded file is empty"
+            )
+        
+        # Transcribe the audio
+        transcription_result = await speech_manager.transcribe_audio_data(file_content)
+        
+        if transcription_result.get("processing_status") != "completed":
+            return ProcessingResponse(
+                success=False,
+                message=f"Transcription failed: {transcription_result.get('error', 'Unknown error')}",
+                data=None
+            )
+        
+        # Extract meeting data from transcription
+        transcribed_text = transcription_result.get("text", "")
+        
+        if customer_hint or meeting_date_hint:
+            hint_text = "Additional information: "
+            if customer_hint:
+                hint_text += f"Customer is {customer_hint}. "
+            if meeting_date_hint:
+                hint_text += f"Meeting date is {meeting_date_hint}."
+            
+            transcribed_text = f"{transcribed_text}\n\n{hint_text}"
+        
+        # Extract meeting data
+        meeting_data = await extraction_manager.extract(transcribed_text)
+        
+        return ProcessingResponse(
+            success=True,
+            message="Audio processed successfully",
+            data=meeting_data
+        )
+            
+    except HTTPException:
+        # Re-raise HTTP exceptions
+        raise
+        
+    except BaseAppException as e:
+        logger.error(f"[{request_id}] Application error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": str(e),
+                "error_code": e.code_value,
+                "error_details": e.details,
+                "request_id": request_id
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"[{request_id}] Unexpected error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unexpected error: {str(e)}"
+        )
