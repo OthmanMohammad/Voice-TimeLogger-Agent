@@ -5,7 +5,8 @@ This implementation is compatible with OpenAI SDK 1.x.
 
 import json
 import asyncio
-from typing import Dict, Any, Optional
+import re
+from typing import Dict, Any, Optional, Union
 from datetime import datetime
 from dateutil import parser
 from openai import OpenAI
@@ -30,12 +31,6 @@ from src.enums import ExtractionStatus
 
 logger = get_logger(__name__)
 
-# Define the default model
-DEFAULT_LLM_MODEL = "gpt-4o-mini"
-
-# TODO
-# add default model to .env and get it from config 
-
 class LLMExtractor:
     """Extracts meeting data from text using LLM models."""
     
@@ -45,25 +40,28 @@ class LLMExtractor:
         
         Args:
             api_key: OpenAI API key (falls back to settings if not provided)
-            model: Which model to use for extraction (defaults to DEFAULT_LLM_MODEL)
+            model: Which model to use for extraction (defaults to settings.DEFAULT_LLM_MODEL)
             
         Raises:
             ValidationError: If API key is missing or invalid
         """
         try:
+            # Get settings
+            settings = get_settings()
+            
             # If api_key is provided directly, use it
             if api_key:
                 self.api_key = api_key
             else:
                 # Otherwise get from settings
-                settings = get_settings()
                 self.api_key = settings.OPENAI_API_KEY
             
             if not self.api_key:
                 raise ValidationError("Valid OpenAI API key is required")
             
             self.client = OpenAI(api_key=self.api_key)
-            self.model = model or DEFAULT_LLM_MODEL
+            # Use model from parameters, or from settings, or fall back to gpt-4o-mini
+            self.model = model or settings.DEFAULT_LLM_MODEL
             logger.info(f"LLM Extractor initialized with model: {self.model}")
             
         except Exception as e:
@@ -73,6 +71,42 @@ class LLMExtractor:
                 original_exception=e
             )
     
+    def _format_duration(self, hours_value: Union[float, str]) -> str:
+        """
+        Format a duration value to the standard "Xh Ym" format.
+        
+        Args:
+            hours_value: Duration in hours (float or string)
+            
+        Returns:
+            Formatted duration string like "1h 30m"
+        """
+        # If it's already in the correct format, return it
+        if isinstance(hours_value, str) and re.match(r'^\d+h\s+\d+m$', hours_value.strip()):
+            return hours_value
+            
+        try:
+            # Convert to float if it's a string representing a number
+            if isinstance(hours_value, str):
+                # Try to extract numeric part if it has units
+                match = re.match(r'(\d+\.?\d*)', hours_value)
+                if match:
+                    hours_value = float(match.group(1))
+                else:
+                    hours_value = float(hours_value)
+            
+            # Calculate hours and minutes
+            hours = int(hours_value)
+            minutes = int((hours_value - hours) * 60)
+            
+            # Format as "Xh Ym"
+            return f"{hours}h {minutes}m"
+            
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Failed to format duration '{hours_value}': {str(e)}")
+            # Return the original value if we can't format it
+            return str(hours_value) if hours_value is not None else None
+
     @log_async_function_call(logger)
     async def extract(self, text: str) -> Dict[str, Any]:
         """
@@ -142,15 +176,9 @@ class LLMExtractor:
                             f"Failed to parse date '{result['meeting_date']}': {str(e)}"
                         )
                 
-                # Convert total_hours to float
-                if result.get("total_hours"):
-                    try:
-                        result["total_hours"] = float(result["total_hours"])
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to convert total_hours '{result['total_hours']}' to float: {str(e)}"
-                        )
-                        result["total_hours"] = None
+                # Format total_hours to ensure consistent "Xh Ym" format
+                if result.get("total_hours") is not None:
+                    result["total_hours"] = self._format_duration(result["total_hours"])
                 
                 result["timestamp"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 
