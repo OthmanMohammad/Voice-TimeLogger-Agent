@@ -267,10 +267,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgements
-
-- [OpenAI](https://openai.com/) for Whisper API and GPT models
-- [n8n.io](https://n8n.io/) for the workflow automation platform
-- [FastAPI](https://fastapi.tiangolo.com/) for the API framework
-- [Google Sheets API](https://developers.google.com/sheets/api) for data storage
