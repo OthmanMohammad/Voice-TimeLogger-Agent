@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     
     # Data extraction settings
     USE_LLM: bool = Field(default=True)
+    DEFAULT_LLM_MODEL: str = Field(default="gpt-4o-mini")
     
     # Google Sheets settings
     GOOGLE_CREDENTIALS_FILE: Optional[str] = None

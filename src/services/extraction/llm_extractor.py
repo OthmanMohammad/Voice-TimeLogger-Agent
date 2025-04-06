@@ -30,12 +30,6 @@ from src.enums import ExtractionStatus
 
 logger = get_logger(__name__)
 
-# Define the default model
-DEFAULT_LLM_MODEL = "gpt-4o-mini"
-
-# TODO
-# add default model to .env and get it from config 
-
 class LLMExtractor:
     """Extracts meeting data from text using LLM models."""
     
@@ -45,25 +39,28 @@ class LLMExtractor:
         
         Args:
             api_key: OpenAI API key (falls back to settings if not provided)
-            model: Which model to use for extraction (defaults to DEFAULT_LLM_MODEL)
+            model: Which model to use for extraction (defaults to settings.DEFAULT_LLM_MODEL)
             
         Raises:
             ValidationError: If API key is missing or invalid
         """
         try:
+            # Get settings
+            settings = get_settings()
+            
             # If api_key is provided directly, use it
             if api_key:
                 self.api_key = api_key
             else:
                 # Otherwise get from settings
-                settings = get_settings()
                 self.api_key = settings.OPENAI_API_KEY
             
             if not self.api_key:
                 raise ValidationError("Valid OpenAI API key is required")
             
             self.client = OpenAI(api_key=self.api_key)
-            self.model = model or DEFAULT_LLM_MODEL
+            # Use model from parameters, or from settings, or fall back to gpt-4o-mini
+            self.model = model or settings.DEFAULT_LLM_MODEL
             logger.info(f"LLM Extractor initialized with model: {self.model}")
             
         except Exception as e:
