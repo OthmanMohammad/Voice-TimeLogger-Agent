@@ -35,12 +35,8 @@ class Settings(BaseSettings):
     # Temp directory
     TEMP_DIR: str = Field(default="./tmp/meeting_recordings")
     
-    # Speech-to-text settings
-    SPEECH_PROVIDER: str = Field(default="openai") # "openai" or "google"
+    # OpenAI API settings
     OPENAI_API_KEY: Optional[str] = None
-    
-    # Data extraction settings
-    USE_LLM: bool = Field(default=True)
     DEFAULT_LLM_MODEL: str = Field(default="gpt-4o-mini")
     
     # Google Sheets settings
@@ -64,7 +60,6 @@ class Settings(BaseSettings):
     
     # Logging settings
     LOG_LEVEL: str = Field(default="INFO")
-    LOG_FILE: Optional[str] = None
     
     class Config:
         env_file = ".env"
@@ -117,10 +112,7 @@ def validate_settings() -> List[str]:
         missing = []
         
         # Check for required settings
-        if settings.SPEECH_PROVIDER == "openai" and not settings.OPENAI_API_KEY:
-            missing.append("OPENAI_API_KEY")
-        
-        if settings.USE_LLM and not settings.OPENAI_API_KEY:
+        if not settings.OPENAI_API_KEY:
             missing.append("OPENAI_API_KEY")
         
         if not settings.GOOGLE_CREDENTIALS_FILE or not os.path.exists(settings.GOOGLE_CREDENTIALS_FILE):
