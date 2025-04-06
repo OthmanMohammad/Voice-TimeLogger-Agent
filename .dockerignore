@@ -55,3 +55,8 @@ credentials/*.json
 tmp/
 *.tmp
 *.log
+
+# Example files
+examples/
+n8n_workflow/images/
+n8n_data/
