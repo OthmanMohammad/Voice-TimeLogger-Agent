@@ -393,3 +393,6 @@ tests/audio/*.mp3
 tests/audio/*.wav
 # But keep the directory structure
 !tests/audio/.gitkeep
+
+# n8n data directory
+n8n_data/

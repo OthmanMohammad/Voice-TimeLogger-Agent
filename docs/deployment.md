@@ -11,6 +11,10 @@ This document explains how to deploy the Voice-TimeLogger-Agent application both
 
 ## Local Deployment
 
+There are two ways to deploy and test the Voice-TimeLogger-Agent:
+1. **Direct API approach**: Deploy only the API service and interact with it directly
+2. **n8n workflow approach**: Deploy both the API and n8n services, and use the n8n workflow as an intermediary
+
 ### 1. Configure Environment
 
 - Copy `.env.example` to `.env` and edit with your actual API keys and settings
@@ -23,7 +27,6 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-
 ### 3. Start the Service
 
 ```bash
@@ -31,6 +34,28 @@ docker-compose up -d
 ```
 
 The API will be available at http://localhost:8000
+The n8n workflow automation tool will be available at http://localhost:5678
+
+#### Testing with Direct API Approach
+```bash
+# Test the API directly
+curl -X POST "http://localhost:8000/api/v1/speech/upload" \
+  -H "Content-Type: multipart/form-data" \
+  -F "file=@examples/audio/example_meeting_1.mp3" \
+  -F "notify=true"
+```
+
+#### Testing with n8n Workflow
+```bash
+# Test via the n8n webhook (after configuring the workflow)
+curl -X POST "http://localhost:5678/webhook/YOUR_WEBHOOK_PATH" \
+  -F "file=@examples/audio/example_meeting_1.mp3" \
+  -F "notify=true"
+```
+
+Each approach has its advantages:
+- The direct API approach is simpler for development and debugging
+- The n8n workflow approach provides visual workflow management and additional automation options
 
 > **Note:**  
 > The setup script (`setup.sh`) only needs to be run **once** to create the necessary directories and check for required files. For subsequent deployments, you can run:  
@@ -44,6 +69,20 @@ The API will be available at http://localhost:8000
 ```bash
 docker-compose logs -f
 ```
+
+## n8n Configuration
+
+After deploying the application, you'll need to configure n8n:
+
+- Access n8n at http://localhost:5678
+- Create an n8n account or log in
+- Import the workflow from n8n_workflow/voice-timelogger-workflow.json
+- Configure the required credentials:
+  - Google Sheets (for storing meeting data)
+  - SMTP (for email notifications)
+- Activate the workflow
+
+Refer to n8n Workflow Documentation for detailed setup instructions.
 
 ## EC2 Deployment
 
@@ -78,6 +117,7 @@ Replace:
 ### 4. Verify Deployment
 
 Once deployment completes, the API will be available at http://your-ec2-ip:8000
+The n8n workflow automation tool will be available at http://your-ec2-ip:5678
 
 You can SSH into your EC2 instance to check logs:
 
@@ -94,6 +134,7 @@ docker-compose logs -f
 1. The setup script creates necessary directories and checks for required files
 2. Docker Compose builds the application image using the multi-stage Dockerfile
 3. The container runs with the local directories mounted as volumes
+4. n8n provides a visual workflow editor and execution engine
 
 ### EC2 Deployment
 
@@ -106,7 +147,7 @@ docker-compose logs -f
 2. Docker Compose on EC2:
    - Builds the application image
    - Starts the container with the correct configuration
-   - Exposes the API on port 8000
+   - Exposes the API on port 8000 and n8n on port 5678
 
 ## Troubleshooting
 
@@ -121,8 +162,11 @@ docker-compose logs -f
    - Run `chmod -R 777 ./tmp` to ensure the tmp directory is writable
 
 3. **Network issues**
-   - If deploying to EC2, check security group settings to ensure port 8000 is open
+   - If deploying to EC2, check security group settings to ensure ports 8000 and 5678 are open
 
 4. **Deployment script fails**
    - Verify SSH key has the correct permissions: `chmod 400 ./credentials/your-key.pem`
    - Check EC2 instance status and connectivity
+
+5. **n8n workflow issues**
+   - See the n8n Workflow Documentation for troubleshooting
