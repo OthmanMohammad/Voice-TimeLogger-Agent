@@ -33,7 +33,7 @@
 ## Architecture
 
 <p align="center">
-  <img src="https://github.com/username/voice-timelogger-agent/raw/main/docs/assets/architecture.png" alt="Architecture Diagram" width="800"/>
+  <img src="docs\assets\architecture_diagram.png" alt="Architecture Diagram" width="800"/>
 </p>
 
 ### Technology Stack
@@ -212,35 +212,6 @@ The AI-powered extraction system can handle various formats and expressions:
 - Extracting client names from contextual mentions
 - Separating meeting notes from factual information
 
-## Project Structure
-
-```
-voice-timelogger-agent/
-├── config/                   # Application configuration
-├── credentials/              # API credentials (not in repo)
-├── docs/                     # Documentation
-├── n8n_workflow/             # n8n workflow configuration
-├── postman/                  # Postman collection for API testing
-├── scripts/                  # Utility scripts
-├── src/
-│   ├── enums/                # Enum definitions
-│   ├── models/               # Pydantic models
-│   ├── routes/               # API routes
-│   ├── services/
-│   │   ├── extraction/       # AI data extraction
-│   │   ├── notification/     # Email/Slack notifications
-│   │   ├── speech/           # Speech-to-text processing
-│   │   └── storage/          # Google Sheets integration
-│   └── utils/                # Utility functions
-├── tests/                    # Unit and integration tests
-├── tmp/                      # Temporary storage for audio files
-├── .env.example              # Example environment variables
-├── docker-compose.yml        # Docker Compose configuration
-├── Dockerfile                # Multi-stage Docker build
-├── requirements.txt          # Python dependencies
-└── setup.sh                  # Setup script
-```
-
 ## Configuration
 
 The application is configured using environment variables. See [.env.example](.env.example) for a complete list of available options:
@@ -271,7 +242,7 @@ NOTIFICATIONS_DEFAULT=false
 ## n8n Workflow
 
 <p align="center">
-  <img src="https://github.com/username/voice-timelogger-agent/raw/main/docs/assets/n8n-workflow.png" alt="n8n Workflow" width="800"/>
+  <img src="n8n_workflow\images\n8n-workflow-diagram.png" alt="n8n Workflow" width="800"/>
 </p>
 
 The n8n workflow provided in this repository automates the process of:
